@@ -1,0 +1,204 @@
+#include <AccelStepper.h>
+#include <MultiStepper.h>
+
+#define HEADER_A 0x61
+#define HEADER_B 0x62
+#define POSITION_MSG 0x63
+#define UPDATE_SPEED 0x64
+#define PAUSE 0x65
+#define FINISH_MOVE 0x66
+
+#define LEN_POS 8
+#define LEN_SPEED 2
+
+#define MOTOR_INTERFACE_TYPE 1
+
+#define R_STEP_PIN 54
+#define R_DIR_PIN 55
+#define R_ENABLE_PIN 38
+#define R_SWITCH_PIN 3
+#define R_STEP_LIMIT 5000
+
+#define PHI_STEP_PIN 60
+#define PHI_DIR_PIN 61
+#define PHI_ENABLE_PIN 56
+
+#define BUFFER_SIZE 5
+
+byte serial_head[3];
+byte temp[4];
+
+AccelStepper R_motor(MOTOR_INTERFACE_TYPE, R_STEP_PIN, R_DIR_PIN);
+AccelStepper PHI_motor(MOTOR_INTERFACE_TYPE, PHI_STEP_PIN, PHI_DIR_PIN);
+MultiStepper steppers;
+
+enum stanje_t {HOME, READ, MOVE} stanje = HOME;
+
+// buffer index so we can implement a circular buffer
+uint8_t buffer_index;
+long R_buffer[BUFFER_SIZE];
+long PHI_buffer[BUFFER_SIZE];
+
+uint8_t R_endstop_value;
+long R_pos, PHI_pos, check;
+long position[2];
+uint16_t speed;
+bool R_move, PHI_move;
+
+void home();
+void read_serial_input();
+void move_to_position();
+void set_new_position();
+
+void setup() {
+  // pins to be defined
+  pinMode(R_ENABLE_PIN, OUTPUT);
+  pinMode(PHI_ENABLE_PIN, OUTPUT);
+  pinMode(R_SWITCH_PIN, INPUT);
+
+  // enable the steppers by setting the enable pins low
+  // by setting high they should be disabled
+  digitalWrite(R_ENABLE_PIN, LOW);
+  digitalWrite(PHI_ENABLE_PIN, LOW);
+
+  // set the stepper speeds
+  R_motor.setMaxSpeed(1000); 
+  PHI_motor.setMaxSpeed(1000); 
+
+  steppers.addStepper(R_motor);
+  steppers.addStepper(PHI_motor);
+
+  // begin Serial
+  Serial.begin(115200);
+}
+
+
+void loop() {
+
+  // read_serial_input();
+  switch (stanje)
+  {
+  case HOME:
+    home();
+    break;
+  
+  case READ:
+    read_serial_input();
+    break;
+
+  case MOVE:
+    move_to_position();
+    break;
+  
+  default:
+    break;
+  }
+
+}
+
+
+// home the R axis stepper
+void home() {
+  R_endstop_value = digitalRead(R_SWITCH_PIN);
+  
+  if (R_endstop_value) {
+    R_motor.setSpeed(-600);
+    R_motor.runSpeed();
+  }
+  else {
+    R_motor.setCurrentPosition(0);
+    R_motor.setSpeed(0);
+    R_motor.runSpeed();
+
+    stanje = READ;
+  }
+}
+
+
+void read_serial_input() {
+  if (Serial.available() > 0){
+    Serial.readBytes(serial_head, 3);
+
+    if (serial_head[0] == HEADER_A && serial_head[1] == HEADER_B){
+      if (serial_head[2] == POSITION_MSG){
+
+        
+        Serial.readBytes(temp, 4);
+        position[0] = ((long)temp[0] << 24) | ((long)temp[1] << 16) 
+                      | ((long)temp[2] << 8) | temp[3]; 
+        
+        Serial.readBytes(temp, 4);
+        position[1] = ((long)temp[0] << 24) | ((long)temp[1] << 16) 
+                      | ((long)temp[2] << 8) | temp[3]; 
+        
+        set_new_position();
+        stanje = MOVE;
+      }
+      
+      if (serial_head[2] == UPDATE_SPEED){
+        byte msb = Serial.read();
+        byte lsb = Serial.read();
+
+        speed = ((uint16_t)msb << 8) | lsb;
+      }
+    
+    }
+
+    while (Serial.available() > 0){
+      byte trash = Serial.read();
+    }
+
+    
+  // Serial.print(serial_head[0]);
+  // Serial.print(serial_head[1]);
+  // Serial.print(serial_head[2]);
+  // Serial.print(",");
+  // Serial.print(position[0]);
+  // Serial.print(",");
+  // Serial.println(position[1]);
+
+  }
+
+}
+
+
+void set_new_position(){
+  long cur_phi = PHI_motor.currentPosition();
+
+  position[1] += cur_phi;
+
+  steppers.moveTo(position);
+}
+
+// void read_serial_input() {
+//   if (Serial.available() > 0){
+//     R_pos = Serial.parseInt();
+//     PHI_pos = Serial.parseInt();
+//     check = Serial.parseInt();
+
+//     if (check == 11){
+      
+//       position[0] = R_pos;
+//       position[1] = PHI_pos;
+//       steppers.moveTo(position);
+
+//       Serial.println("Received");
+    
+//       stanje = MOVE;
+
+//     }
+//     else {
+//       Serial.println("False input");
+//     }
+//   }
+// }
+
+
+void move_to_position() {
+  
+  if (steppers.run() == 0){
+    stanje = READ;
+    // Serial.println("Moved to pos");
+    Serial.write(FINISH_MOVE);
+  }
+}

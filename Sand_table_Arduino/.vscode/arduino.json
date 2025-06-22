@@ -1,0 +1,8 @@
+{
+    "board": "esp32:esp32:esp32dev",
+    "sketch": "ESP_solar.ino",
+    "output": "../build",
+    "port": "COM3",
+    "arduino.path": "C:/Users/lukaf/AppData/Local/Programs/Arduino IDE",
+    "arduino.additionalUrls": "https://dl.espressif.com/dl/package_esp32_index.json"
+}

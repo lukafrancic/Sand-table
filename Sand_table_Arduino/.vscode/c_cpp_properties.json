@@ -1,0 +1,27 @@
+{
+    "configurations": [
+        {
+        "name": "Win32",
+        "includePath": [
+            "${workspaceFolder}/**",
+            "C:/Users/lukaf/AppData/Local/Arduino15/packages/esp32/hardware/esp32/**",
+            "C:/Users/lukaf/OneDrive/Dokumenti/Arduino/libraries/**"
+        ],
+        "browse": {
+            "path": [
+                "${workspaceFolder}/**",
+                "C:/Users/lukaf/AppData/Local/Arduino15/packages/esp32/hardware/esp32/**",
+                "C:/Users/lukaf/OneDrive/Dokumenti/Arduino/libraries/**"
+            ],
+            "limitSymbolsToIncludedHeaders": true,
+            "databaseFilename": ""
+        },
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ]
+        }
+    ],
+    "version": 4
+}
