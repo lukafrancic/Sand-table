@@ -1,13 +1,13 @@
 #include <AccelStepper.h>
 #include <MultiStepper.h>
 
-#define HEADER_A 0x61
-#define HEADER_B 0x62
-#define POSITION_MSG 0x63
-#define SPEED_MSG 0x64
-#define BEGIN_MSG 0x65
-#define STOP_MSG 0x66
-#define REQUEST_MSG 0x67
+#define HEADER_A 0x61 // a
+#define HEADER_B 0x62 // b
+#define POSITION_MSG 0x63 // c
+#define SPEED_MSG 0x64 // d
+#define TOGGLE_MSG 0x65 // e
+// #define STOP_MSG 0x66
+#define REQUEST_MSG 0x66 // f
 
 #define LEN_POS 8
 #define LEN_SPEED 2
@@ -41,8 +41,11 @@ MultiStepper steppers;
 enum class MotorState {HOME, MOVE, STOP};
 MotorState m_state = MotorState::HOME;
 
-enum class SerialState {READ_HEADER, BEGIN, STOP,
-                        UPDATE_POSITION, UPDATE_SPEED, CLEAR};
+// enum class SerialState {READ_HEADER, BEGIN, STOP,
+//                         UPDATE_POSITION, UPDATE_SPEED, CLEAR};
+                        
+enum class SerialState {READ_HEADER,
+                        UPDATE_POSITION, UPDATE_SPEED};
 SerialState s_state = SerialState::READ_HEADER;
 
 // run the motor and data acq
@@ -208,17 +211,17 @@ void read_serial_input() {
       serial_position_handling();
       break;
 
-    case SerialState::BEGIN:
-      is_active = true;
-      m_state = MotorState::MOVE;
-      s_state = SerialState::READ_HEADER;
-      break;
+    // case SerialState::BEGIN:
+    //   is_active = true;
+    //   m_state = MotorState::MOVE;
+    //   s_state = SerialState::READ_HEADER;
+    //   break;
 
-    case SerialState::STOP:
-      is_active = false;
-      m_state = MotorState::STOP;
-      s_state = SerialState::READ_HEADER;
-      break;
+    // case SerialState::STOP:
+    //   is_active = false;
+    //   m_state = MotorState::STOP;
+    //   s_state = SerialState::READ_HEADER;
+    //   break;
 
     default:
       s_state = SerialState::READ_HEADER;
@@ -243,12 +246,18 @@ void serial_header_handling() {
     case POSITION_MSG:
       s_state = SerialState::UPDATE_POSITION;
       break;
-    case BEGIN_MSG:
-      s_state = SerialState::BEGIN;
+    case TOGGLE_MSG:
+      is_active = !is_active;
+      if (is_active){
+        m_state = MotorState::MOVE;
+      } else{
+        m_state = MotorState::STOP;
+      }
+      s_state = SerialState::READ_HEADER;
       break;
-    case STOP_MSG:
-      s_state = SerialState::STOP;
-      break;
+    // case STOP_MSG:
+    //   s_state = SerialState::STOP;
+    //   break;
     default:
       s_state = SerialState::READ_HEADER;
       break;
@@ -279,32 +288,34 @@ void serial_speed_handling() {
 void serial_position_handling() {
   byte rec = Serial.read();
 
+  // ce ne castas rec v long, ga Arduino casta v int16, zaradi cesar pride do
+  // tezav pri velikih cifrah
   switch (serial_counter)
   {
   case 0:
-    incoming_positon = (long)(rec << 24);
+    incoming_positon = ((long)rec) << 24;
     break;
   case 1:
-    incoming_positon = incoming_positon | (long)(rec << 16);
+    incoming_positon = incoming_positon | (((long)rec) << 16);
     break;
   case 2:
-    incoming_positon = incoming_positon | (long)(rec << 8);
+    incoming_positon = incoming_positon | (((long)rec) << 8);
     break;
   case 3:
-    incoming_positon = incoming_positon | rec;
+    incoming_positon = incoming_positon | (long)rec;
     R_buffer[buffer_fill_index] = incoming_positon;
     break;
   case 4:
     incoming_positon = (long)(rec << 24);
     break;
   case 5:
-    incoming_positon = incoming_positon | (long)(rec << 16);
+    incoming_positon = incoming_positon | (((long)rec) << 16);
     break;
   case 6:
-    incoming_positon = incoming_positon | (long)(rec << 8);
+    incoming_positon = incoming_positon | (((long)rec) << 8);
     break;
   case 7:
-    incoming_positon = incoming_positon | rec;
+    incoming_positon = incoming_positon | (long)rec;
     PHI_buffer[buffer_fill_index] = incoming_positon;
     buffer_storage++;
     buffer_fill_index = (buffer_fill_index + 1) % BUFFER_SIZE;
@@ -322,8 +333,8 @@ void serial_position_handling() {
 
 void request_data(){
   request_free = false;  
-  Serial.write(HEADER_A);
-  Serial.write(HEADER_B);
+  // Serial.write(HEADER_A);
+  // Serial.write(HEADER_B);
   Serial.write(REQUEST_MSG);
 
     // Serial.write(buffer_storage);

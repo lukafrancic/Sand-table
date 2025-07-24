@@ -1,5 +1,5 @@
 import numpy as np
-
+import asyncio
 
 
 def _calc_triag(pt0: tuple, pt1: tuple, pt2: tuple) -> float:
@@ -77,11 +77,15 @@ class PathMaker:
     """
     A Generator class that holds the trajectory points. Once instantiated
     use next(instance) to receive the next valid point. Once the end of the
-    generator is reached, it will yield None.
+    generator is reached, it will raise StopIteration. When instantiating 
+    one must do PathMaker.create()
 
     Available attributes
     - calc_pts -> calculated points in XY CS
     - pts_polar -> calculated point in polar CS
+
+    Available methods:
+    - create() -> allows to instatiate this class asinhronously
 
     :param pts: input points as np.array([N,2]) in mm
     :param eps: desired accuracy of the output trajectory. If None, the input
@@ -91,10 +95,10 @@ class PathMaker:
     :param num_iterations: Repeat the input path n times. When the end is
         reached the generator will yield a None value.
     """
+
     RADIUS_LIMIT_MM = 250 # max allowed r distance in mm
     RADIUS_STEPS_MM = 81.82 # steps per mm for the radial position
     ANGLE_STEPS_RAD = 4169.86 # steps per radian of rotation
-
 
     def __init__(self, pts: np.ndarray, eps: float = None, 
                  rot_angle: float = 5, num_iterations: int = 1):
@@ -103,16 +107,15 @@ class PathMaker:
         # convert angle in degree to radians and then to number of steps
         self.rot_steps = int(rot_angle*np.pi/180*self.ANGLE_STEPS_RAD)
         self.num_iterations = num_iterations
-        self.iter_counter = 0
-
+        self._iter_counter = 0
 
         # check radius limits
         if not np.all(self.pts[:,0] < self.RADIUS_LIMIT_MM):
             raise ValueError(f"Max allowed R value is {self.RADIUS_LIMIT_MM}")
-
+        
         self._get_new_pts()
         self._calc_positions()
-
+    
 
     def _get_new_pts(self) -> None:
         """
@@ -120,7 +123,7 @@ class PathMaker:
         """
         if self.eps is None:
             calc_pts = self.pts
-        if isinstance(self.eps, (float, int)):
+        elif isinstance(self.eps, (float, int)):
             for i in range(self.pts.shape[0]-1):
                 ret = _calc_trajectory(self.pts[i], self.pts[i+1], self.eps)
                 ret = np.array(ret)
@@ -153,21 +156,136 @@ class PathMaker:
         self.positions = self.positions.astype(np.int32)
 
         self._pts_size = self.positions.shape[0]
-        self._current_position = 0
+        self._current_idx = 0
 
     
     def __next__(self):
-        if self._current_position == self._pts_size:
-            self._current_position = 0
-            return np.array([self.positions[0,0], self.rot_steps])
-        
-        next_pt = self.positions[self._current_position]
-        self._current_position += 1
+        if self._current_idx == self._pts_size:
+            self._iter_counter += 1
+            self._current_idx = 0
+            next_pt = np.array([self.positions[0,0], self.rot_steps])
+        else:
+            next_pt = self.positions[self._current_idx]
+            self._current_idx += 1
 
+        if self._iter_counter >= self.num_iterations:
+            raise StopIteration
+    
         return next_pt
 
 
     def __iter__(self):
         return self
+    
+
+    def __repr__(self):
+        return f"PathMaker object:\n- {self.pts.shape[0]} initial points\n" \
+                f"- {self._pts_size} calculated points\n" \
+                f"- {self.num_iterations} iterations\n"
+    
+
+
+class SpiralAboutCenter(PathMaker):
+    """
+    A Generator class to create a spiral around the center. Once instantiated
+    use next(instance) to receive the next valid point. Once the end of the
+    generator is reached, it will raise StopIteration.
+
+    :param r0: what radius to start at
+    :param r1: what radius to end at
+    :param num_revolutions: how many spiral revolutions
+    """
+    def __init__(self, r0: float = 0, r1: float = 200,
+                 num_revolutions: int = 10):
+
+        pts = np.array([
+            [r0, r1],
+            [0, num_revolutions*np.pi*2]
+        ]).T
+        self.num_revolutions = num_revolutions
+        super().__init__(pts, eps=None, rot_angle=0, num_iterations=1)
+
+
+    def _get_new_pts(self):
+        """
+        Calculate the required trajectory points based on input points.
+        """
+        self.pts_polar = self.pts
+
+    def _calc_positions(self):
+        """
+        Based on self.pts_polar the required positions in steps are
+        calculated.
+        """
+        self.positions = np.zeros_like(self.pts_polar)
+
+        self.positions[:, 0] += self.pts_polar[:, 0]*self.RADIUS_STEPS_MM
+        self.positions[1:, 1] += self.pts_polar[:,1]*self.ANGLE_STEPS_RAD
+        self.positions = self.positions.astype(np.int32)
+
+        self._pts_size = self.positions.shape[0]
+        self._current_idx = 0
+
+    # def _get_new_pts(self) -> None:
+    #     """
+    #     Calculate the required trajectory points based on input points.
+        
+    #     For some reason passing just two points to the Sand table doesn't
+    #     work.
+    #     """
+    #     num = int(np.ceil(self.num_revolutions*2)) + 1
+
+    #     phi = np.diff(np.linspace(self.pts[0,0], self.pts[1,0], num))
+    #     r = np.linspace(self.pts[0,1], self.pts[1,1], num)
+
+    #     self.pts_polar = np.vstack((r, phi)).T
 
     
+    # def _calc_positions(self) -> None:
+    #     """
+    #     Based on self.pts_polar the required positions in steps are
+    #     calculated.
+    #     """
+    #     self.positions = self.pts_polar.copy()
+
+    #     self.positions[:, 0] *= self.RADIUS_STEPS_MM
+    #     self.positions[:, 1] *= self.ANGLE_STEPS_RAD
+    #     self.positions = self.positions.astype(np.int32)
+
+    #     self._pts_size = self.positions.shape[0]
+    #     self._current_idx = 0
+
+
+    def get_plot_points(self, cs: str = "polar", pts_per_rev: int = 8):
+        """
+        Get points that can be used in a plot.
+
+        :param cs: points can be represented in a polar CS or cartesian. Use
+            'polar' or 'cartesian' to switch between CS.
+        :param dist: how many points per revolution to use when defining new
+            points to return.
+
+        :return pts: an array of points with dimensions [N, 2]
+        """
+
+        num = int(self.num_revolutions * pts_per_rev)
+
+        r_arr = np.linspace(self.pts[0,0], self.pts[1,0], num)
+        theta_arr = np.linspace(0, self.pts[1,1], num)
+
+        match cs:
+            case "polar":
+                return np.vstack((r_arr, theta_arr)).T 
+            case "cartesian":
+                x = r_arr * np.cos(theta_arr)
+                y = r_arr * np.sin(theta_arr)
+
+                return np.vstack((x, y)).T
+            case _:
+                raise ValueError(f"Received CS value {cs} is not supported!")
+            
+    
+    def __repr__(self):
+        return f"SpiralAboutCenter object:\n- r0 -> {self.pts[0,0]}\n" \
+                f"- r1 -> {self.pts[1,0]}\n" \
+                f"- {self.num_revolutions} of revolutions"
