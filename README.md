@@ -1,7 +1,7 @@
 # Sand-table
 Python and Arduino code to control a homemade sand table with a polar CS based kinematics design.
 
-![/data/img_sand_table.jpg]
+![Sand Table](data/img_sand_table.jpg)
 
 The whole thing is curently still in developlemnt.
 
