@@ -1,2 +1,4 @@
 .venv/
 stlib/__pycache__/
+.vscode
+/SandTableArduino/.vscode

@@ -1,53 +1,77 @@
 import serial
 import time
 from queue import Queue
-
+from enum import Enum, auto
+import threading
 from typing import TypedDict
 
 
-class Messagge(TypedDict):
-    msg: str # message type -> s for speed, t for toggle
-    value: int # speed value
+class MsgType(Enum):
+    none = b"\x60"
+    headerA = b"\x61" # a
+    headerB = b"\x62" # b
+    position = b"\x63" # c
+    speed = b"\x64" # d
+    start = b"\x65" # e
+    stop = b"\x66" # f
+    clear = b"\x67" # g
+    home = b"\x68" # h
+    confirmRec = b"\x69" # i
+    failedRec = b"\x70" #j
+    getRBuffSize = b"\x71"
+    sendRBuffSize = b"\x72"
+    bufferFull = b"\x73"
 
 
+class SerialStates(Enum):
+    read_header = auto()
+    read_msg = auto()
+    read_data = auto()
 
-class Communication:
-    """
-    A class with methods that handles encoded messagges for the sand table.
 
-    Available methods
-    - update_pos()
-    - update_speed()
-    - pause()
+class SendPacket(TypedDict):
+    msg: bytes
+    msg_arr: bytes
 
-    :param COM: current COM port to communicate with the Arduino
-    :param q: a Queue object to pass generic messagges to the loop
-    :param q_pos: a Queue object with new positions
-    """
+
+class SerialCOM:
     BAUDRATE = 115200
-    
-    HEADER = b"ab"
-    POSITION_MSG = b"c"
-    UPDATE_SPEED = b"d"
-    TOGGLE_MSG = b"e"
-    FINISH_MOVE = b"f"
+    LOOP_SLEEP_TIME = 0.05 # s
+    HEADER = MsgType.headerA.value + MsgType.headerB.value
+    BUFF_FULL_TIMEOUT = 1
+
+    def __init__(self, COM: str):
+        self._serial = serial.Serial(COM, baudrate=self.BAUDRATE, timeout=2)
+        self._serial.flush()
+        # wait a bit to establish COM
+        time.sleep(1)
+
+        self._pos_queue: Queue[bytes] = Queue()
+        self._msg_queue: Queue[SendPacket] = Queue()
+
+        self._ser_state = SerialStates.read_header
+        self._last_msg = MsgType.confirmRec.value
+        self._header_buff = [0, 0]
+        self._is_running = False
+        self._active_pos = False
+        self._cur_pos = None
+        self._last_pos_time = time.monotonic()
 
 
-    def __init__(self, COM: str, q: Queue, q_pos: Queue):
-        self.serial = serial.Serial(COM, baudrate=self.BAUDRATE)
-        self.serial.flush()
-        self.q_pos = q_pos
-        self.q = q
+    def _add_item(self, msg: bytes):
+        packet = SendPacket(msg=msg[2], msg_arr=msg)
+
+        self._msg_queue.put(packet)
         
 
-    def update_pos(self, pos: list[int, int]) -> None:
+    def send_pos(self, pos: list[int, int]) -> None:
         """
-        Send new position to Arduino.
+        Adds the new position to a queue. The main loop handles the msg
+        transaction.
 
         :param pos: list of [r, phi] as position in steps. R and Phi must be
             as int32!
 
-        :return: a bynaryarray that can be directly sent over serial
         """
         if len(pos) != 2:
             raise ValueError("Invalid position")
@@ -60,19 +84,18 @@ class Communication:
         pos_r = r.to_bytes(4, "big", signed=True)
         pos_phi = phi.to_bytes(4, "big", signed=True)
 
-        msg = self.HEADER + self.POSITION_MSG + pos_r + pos_phi
+        msg = self.HEADER + MsgType.position.value + pos_r + pos_phi
 
-        # return msg
-        self.serial.write(msg)
+        print(f"Added to queue {msg}")
+        self._pos_queue.put(msg)
 
 
-    def update_speed(self, speed: int) -> bytearray:
+    def update_speed(self, speed: int) -> None:
         """
-        Update the speed value on the sand table
+        Update the speed value on the sand table. Adds the msg to the msg 
+        queue.
 
         :param speed: speed is defined as steps per second as a uint16
-
-        :return: a bynaryarray that can be directly sent over serial
         """
 
         if not isinstance(speed, int):
@@ -83,121 +106,171 @@ class Communication:
         
         val = speed.to_bytes(2, "big", signed=False)
 
-        msg = self.HEADER + self.UPDATE_SPEED + val
+        msg = self.HEADER + MsgType.speed.value + val
 
-        # return msg
-        self.serial.write(msg)
+        self._add_item(msg)
 
 
-    def toggle(self) -> bytearray:
+    def home(self) -> None:
         """
-        Send a toggle msg to the sand table. The table will start/stop based
-        on current condition.
-
-        :return: a bytearray that can be directly sent over serial
+        Send a command to home the sand table.
         """
-        
-        msg = self.HEADER + self.TOGGLE_MSG
-
-        # return msg
-        self.serial.write(msg)
-        # print("send toggle msg")
-
-
-    def loop(self):
-        do_next_move = False
-        while True:
-            if self.serial.in_waiting > 0:
-                rec = self.serial.read()
-                print(rec)
-                if rec == self.FINISH_MOVE:
-                    do_next_move = True
-                else:
-                    continue
-            
-            if do_next_move and not self.q_pos.empty():
-                new_pos = self.q_pos.get()
-                self.update_pos(new_pos)
-                do_next_move = False
-                self.q_pos.task_done()
-                # print("finished a move")
-            
-            if not self.q.empty():
-                rec = self.q.get()
-                
-                if rec["msg"] == "t":
-                    print("sent toggle")
-                    self.toggle()
-                elif rec["msg"] == "s":
-                    print("updated speed")
-                    self.update_speed(rec["val"])
-                
-                self.q.task_done()
-            
-            time.sleep(0.1)
-
-
-    # def _loop(self):
-
-    #     while self._event.is_set():
-    #         if self.serial.in_waiting > 0:
-    #             rec = self.serial.read()
-    #             print("rec")
-    #             if rec == self.FINISH_MOVE:
-    #                 pos = next(self.path_maker)
-    #                 self.update_pos(pos)
-    #                 print("\tupdated")
-
-    #             time.sleep(0.1)
-    #             # self.serial.flushInput()
-
-    #         time.sleep(0.1)
+        msg = self.HEADER + MsgType.home.value
+        self._add_item(msg)
 
     
-    # def begin(self):
-    #     if not self._is_running:
-    #         self._event.set()
-    #         # clear the serial buffer
-    #         # self.serial.flushInput()
-    #         time.sleep(0.1)
-    #         self.toggle()
-    #         time.sleep(0.1)
-    #         self._thread = threading.Thread(target = self._loop)
-    #         self._thread.start()
-    #         self._is_running = True
-    #         print("Starting")
+    def is_homed(self) -> bool:
+        """
+        Is the sand table homed?
+        """
+        #TODO
+        pass
 
-    #     else:
-    #         print("Thread is already active")
+
+    def stop(self, clear: bool = False) -> None:
+        """
+        Stop the sand table.
+
+        :param clear: whether to clear the position queue.
+        """
+        msg = self.HEADER + MsgType.stop.value
+        self._add_item(msg)
+
+        if clear:
+            msg = self.HEADER + MsgType.clear.value
+            self._add_item(msg)
 
     
-    # def stop(self):
-    #     if self._is_running:
-    #         self._event.clear()
-    #         self._thread.join()
-    #         self._is_running = False
+    def start(self) -> None:
+        """
+        Start the sand table.
+        """
+        msg = self.HEADER + MsgType.start.value
+        self._add_item(msg)
 
 
-    # def wait_for_response(self, timeout: float = 10) -> bytearray:
-    #     """
-    #     Blocking function that waits on a response from the Arduino
+    def _loop(self) -> None:
+        """
+        We need a start off sequence -> is homed, stopped, buffer status
 
-    #     :param timeout: if no response after N seconds, exit the function.
-    #     """
-    #     t1 = time.monotonic()
-    #     rec = None
+        state machine to keep track?
+
+        let's just first see if this shit even works as expected.
+
+        fokus... rabis posiljat msge in jih sproti tudi pobirati
+        """
         
-    #     while self.serial.in_waiting < 1:
-    #         time.sleep(0.1)
-    #         t2 = time.monotonic()
-    #         if t2-t1 > timeout:
-    #             break
-                
-    #     if self.serial.in_waiting >= 1:
-    #         rec = self.serial.read()
+        if self._serial.in_waiting > 0:
+            rec = self._serial.read_all()
+            print("Ignoring all available msgs at startup:")
+            print(f"\t{rec}\n")
 
-    #     if rec == self.FINISH_MOVE:
-    #         return True
+        print("Starting the loop")
+        while self._event.is_set():
+            self._serial_send_postion()
+            self._serial_send_msg()
+
+            time.sleep(self.LOOP_SLEEP_TIME)
+
+
+    def _serial_send_postion(self):
+        if self._pos_queue.empty() and not self._active_pos:
+            return
+    
+        if self._active_pos:
+            t_ = time.monotonic()
+            if (t_ - self._last_pos_time) < self.BUFF_FULL_TIMEOUT:
+                return
+        else:
+            self._cur_pos = self._pos_queue.get()
+
+        print(f"Sending msg: {self._cur_pos}")
+        self._serial.write(self._cur_pos)
+
+        ret = self._serial.read_until(self.HEADER, size=2)
+        if not ret:
+            print("Response pos timed out!")
+            return
+
+        msg = self._serial.read(1)
+        if not msg:
+            print("Response pos timed out!")
+            return
         
-    #     return False
+        match msg:
+            case MsgType.confirmRec.value:
+                self._active_pos = False
+                self._pos_queue.task_done()
+                print(f"Msg confirmed {msg}")
+            case MsgType.failedRec.value:
+                print("Pos was denied")
+                self._active_pos = True
+            case MsgType.bufferFull.value:
+                print("Buffer is full -> resend msg")
+                self._active_pos = True
+            case _:
+                print(f"Received unexpected return pos msg {msg}")
+                #TODO kaj res naredit v tem primeru?
+                self._pos_queue.task_done()
 
+        self._last_pos_time = time.monotonic()
+
+
+    def _serial_send_msg(self):
+        if self._msg_queue.empty():
+            return
+        
+        item = self._msg_queue.get()
+        print(f"Sending msg: {item['msg_arr']}")
+        self._serial.write(item["msg_arr"])
+
+        ret = self._serial.read_until(self.HEADER, size=2)
+        if not ret:
+            print("Response msg time out")
+            return
+        msg = self._serial.read(1)
+        if not msg:
+            print("Reponse msg timed out!")
+
+        match msg:
+            case MsgType.confirmRec.value:
+                print(f"Msg confirmed {msg}")
+                self._msg_queue.task_done()
+                return
+            case MsgType.failedRec.value:
+                print("Msg was denied")
+                #TODO send a retry msg?
+                self._msg_queue.task_done()
+                return
+            case MsgType.sendRBuffSize.value:
+                ret = self._serial.read(1)
+                if not ret:
+                    print("Failed to receive buff size")
+                self._buffsize = int.from_bytes(ret)
+                self._msg_queue.task_done()
+                return
+            case _:
+                print(f"Received unexpected return msg {msg}")
+                self._msg_queue.task_done()
+
+
+    def begin_com(self):
+        if self._is_running:
+            print("The loop is already started")
+            return
+        
+        self._thread = threading.Thread(target=self._loop)
+        self._event = threading.Event()
+        self._event.set()
+        self._thread.start()
+        self._is_running = True
+
+    
+    def stop_com(self):
+        if not self._is_running:
+            print("The loop is not active")
+            return
+        
+        self._event.clear()
+        self._thread.join()
+        self._is_running = False
