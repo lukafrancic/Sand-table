@@ -1,5 +1,4 @@
 import numpy as np
-import asyncio
 
 
 def _calc_triag(pt0: tuple, pt1: tuple, pt2: tuple) -> float:
@@ -96,7 +95,7 @@ class PathMaker:
         reached the generator will yield a None value.
     """
 
-    RADIUS_LIMIT_MM = 250 # max allowed r distance in mm
+    RADIUS_LIMIT_MM = 251 # max allowed r distance in mm
     RADIUS_STEPS_MM = 81.82 # steps per mm for the radial position
     ANGLE_STEPS_RAD = 4169.86 # steps per radian of rotation
 
@@ -159,7 +158,7 @@ class PathMaker:
         self._current_idx = 0
 
     
-    def __next__(self):
+    def __next__(self) -> np.ndarray:
         if self._current_idx == self._pts_size:
             self._iter_counter += 1
             self._current_idx = 0
@@ -212,6 +211,7 @@ class SpiralAboutCenter(PathMaker):
         """
         self.pts_polar = self.pts
 
+
     def _calc_positions(self):
         """
         Based on self.pts_polar the required positions in steps are
@@ -220,7 +220,7 @@ class SpiralAboutCenter(PathMaker):
         self.positions = np.zeros_like(self.pts_polar)
 
         self.positions[:, 0] += self.pts_polar[:, 0]*self.RADIUS_STEPS_MM
-        self.positions[1:, 1] += self.pts_polar[:,1]*self.ANGLE_STEPS_RAD
+        self.positions[1:, 1] += self.pts_polar[1:,1]*self.ANGLE_STEPS_RAD
         self.positions = self.positions.astype(np.int32)
 
         self._pts_size = self.positions.shape[0]

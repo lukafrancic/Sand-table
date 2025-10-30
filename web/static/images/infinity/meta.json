@@ -1,0 +1,7 @@
+{
+    "engine": "PathMaker",
+    "parameters": [
+        {"name": "rotations", "type": "number"},
+        {"name": "rotate", "type": "number"}
+    ]
+}

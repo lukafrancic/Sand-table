@@ -1,0 +1,8 @@
+{
+    "engine": "SpiralAboutCenter",
+    "parameters": [
+        {"name": "rotations", "type": "number"},
+        {"name": "r0", "type": "number"},
+        {"name": "r1", "type": "number"}
+    ]
+}

@@ -46,8 +46,8 @@ class SerialCOM:
         # wait a bit to establish COM
         time.sleep(1)
 
-        self._pos_queue: Queue[bytes] = Queue()
-        self._msg_queue: Queue[SendPacket] = Queue()
+        self._pos_queue: Queue[bytes] = Queue(25)
+        self._msg_queue: Queue[SendPacket] = Queue(25)
 
         self._ser_state = SerialStates.read_header
         self._last_msg = MsgType.confirmRec.value
@@ -87,7 +87,7 @@ class SerialCOM:
         msg = self.HEADER + MsgType.position.value + pos_r + pos_phi
 
         print(f"Added to queue {msg}")
-        self._pos_queue.put(msg)
+        self._pos_queue.put(msg, block=True, timeout=20)
 
 
     def update_speed(self, speed: int) -> None:
