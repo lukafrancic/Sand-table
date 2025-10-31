@@ -22,3 +22,7 @@ EngineSubmission = Union[
     PathMakerSubmission,
     SpiralAboutCenterSubmission
 ]
+
+
+class ButtonPress(BaseModel):
+    task: str

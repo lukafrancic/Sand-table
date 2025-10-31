@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from constants import EngineSubmission
+from constants import EngineSubmission, ButtonPress
 from utils import load_json
 import stlib as st
 import numpy as np
@@ -52,3 +52,22 @@ async def submit(data: EngineSubmission):
 
         case _:
             print(f"Received unexpected engine {data.engine}")
+
+
+@app.post("/button")
+async def button_press(data: ButtonPress):
+    match data.task:
+        case "home":
+            # print("home")
+            worker.home()
+        case "start":
+            # print("start")
+            worker.start()
+        case "stop":
+            # print("stop")
+            worker.stop()
+        case "clear":
+            # print("clear")
+            worker.stop(clear=True)
+        case _:
+            print(f"Received unexpected {data.task}")

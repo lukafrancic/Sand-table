@@ -75,3 +75,39 @@ async function sendData() {
 
 
 loadItems();
+
+
+async function buttonPress(task) {
+  const payload = {
+    task: task  
+  };
+
+  await fetch("/button", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload)
+  });
+
+  console.log(payload)
+  alert("Button pressed!");
+}
+
+
+async function home() {
+    buttonPress("home");
+}
+
+
+async function start() {
+    buttonPress("start");
+}
+
+
+async function stop() {
+    buttonPress("stop");
+}
+
+
+async function clearQueue() {
+    buttonPress("clear");
+}
