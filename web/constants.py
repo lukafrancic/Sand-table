@@ -26,3 +26,7 @@ EngineSubmission = Union[
 
 class ButtonPress(BaseModel):
     task: str
+
+
+class UpdateSpeed(BaseModel):
+    speed: int

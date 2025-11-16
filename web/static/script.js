@@ -1,5 +1,6 @@
 let selectedId = null;
 let selectedMeta = null;
+let timeout;
 
 async function loadItems() {
   const imageData = await fetch("/static/items.json");
@@ -15,6 +16,19 @@ async function loadItems() {
     div.onclick = () => selectItem(item.id, item.name, div);
     container.appendChild(div);
   });
+
+  const speedVal = document.querySelector("#speed-value");
+  const speedInput = document.querySelector("#speed-slider");
+  speedInput.addEventListener("input", (event) => {
+    const val = event.target.value;
+    speedVal.textContent = val;
+
+    clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        updateSpeed(val);
+    }, 1000);
+  });
+
 }
 
 async function selectItem(id, name, element) {
@@ -47,6 +61,19 @@ function showParameters(params) {
 }
 
 
+async function postData(url, data) {
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(data)
+    });
+  } catch (err) {
+    alert("Error in POST ${url}:'", err);
+  }
+}
+
+
 async function sendData() {
   if (!selectedId) {
     alert("Please select an item first!");
@@ -58,23 +85,12 @@ async function sendData() {
     engine: selectedMeta.engine
   };
 
-  
-
   selectedMeta.parameters.forEach(p=>{
     payload[p.name] = document.getElementById(p.name).value;
   });
   
-  await fetch("/submit", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(payload)
-  });
-
-  alert("Data sent!");
+  await postData("/submit", payload);
 }
-
-
-loadItems();
 
 
 async function buttonPress(task) {
@@ -82,14 +98,7 @@ async function buttonPress(task) {
     task: task  
   };
 
-  await fetch("/button", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(payload)
-  });
-
-  console.log(payload)
-  alert("Button pressed!");
+  await postData("/button", payload)
 }
 
 
@@ -111,3 +120,29 @@ async function stop() {
 async function clearQueue() {
     buttonPress("clear");
 }
+
+
+async function updateSpeed(speed) {
+  const payload = {
+    speed: speed  
+  };
+  await postData("/speed", payload)
+}
+
+
+async function updateColor() {
+  const RVal = document.querySelector("#R-slider").value
+  const GVal = document.querySelector("#G-slider").value
+  const BVal = document.querySelector("#B-slider").value
+
+  const payload = {
+    r: RVal,
+    g: GVal,
+    b: BVal
+  }
+
+  console.log(payload);
+}
+
+
+loadItems();

@@ -39,9 +39,13 @@ class SerialCOM:
     LOOP_SLEEP_TIME = 0.05 # s
     HEADER = MsgType.headerA.value + MsgType.headerB.value
     BUFF_FULL_TIMEOUT = 1
+    MAX_SPEED = 1000 # steps per sec
 
     def __init__(self, COM: str):
-        self._serial = serial.Serial(COM, baudrate=self.BAUDRATE, timeout=2)
+        try:
+            self._serial = serial.Serial(COM, baudrate=self.BAUDRATE, timeout=2)
+        except:
+            raise ConnectionError(f"Failed to open serial port: {COM}")
         self._serial.flush()
         # wait a bit to establish COM
         time.sleep(1)
@@ -56,6 +60,7 @@ class SerialCOM:
         self._active_pos = False
         self._cur_pos = None
         self._last_pos_time = time.monotonic()
+        self._clear_pos_queue = False
 
 
     def _add_item(self, msg: bytes):
@@ -95,15 +100,17 @@ class SerialCOM:
         Update the speed value on the sand table. Adds the msg to the msg 
         queue.
 
+        :param speed: speed is defined as % of max speed of 1000 steps/s
         :param speed: speed is defined as steps per second as a uint16
         """
 
         if not isinstance(speed, int):
             raise TypeError(f"Speed must be an int not {type(speed)}!")
         
-        if speed < 0 and speed > 2**16:
-            raise ValueError("Speed must be a uint16!")
+        if speed <= 0 and speed >= 100:
+            raise ValueError("Speed must be from 0 to 100% of max speed")
         
+        speed = int(self.MAX_SPEED*speed/100)
         val = speed.to_bytes(2, "big", signed=False)
 
         msg = self.HEADER + MsgType.speed.value + val
@@ -139,6 +146,7 @@ class SerialCOM:
         if clear:
             msg = self.HEADER + MsgType.clear.value
             self._add_item(msg)
+            self._clear_pos_queue = True
 
     
     def start(self) -> None:
@@ -169,6 +177,12 @@ class SerialCOM:
         while self._event.is_set():
             self._serial_send_postion()
             self._serial_send_msg()
+
+            if self._clear_pos_queue:
+                while not self._pos_queue.empty():
+                    _ = self._pos_queue.get()
+                    self._pos_queue.task_done()
+                self._clear_pos_queue = False
 
             time.sleep(self.LOOP_SLEEP_TIME)
 
@@ -201,12 +215,12 @@ class SerialCOM:
             case MsgType.confirmRec.value:
                 self._active_pos = False
                 self._pos_queue.task_done()
-                print(f"Msg confirmed {msg}")
+                # print(f"Msg confirmed {msg}")
             case MsgType.failedRec.value:
-                print("Pos was denied")
+                # print("Pos was denied")
                 self._active_pos = True
             case MsgType.bufferFull.value:
-                print("Buffer is full -> resend msg")
+                # print("Buffer is full -> resend msg")
                 self._active_pos = True
             case _:
                 print(f"Received unexpected return pos msg {msg}")

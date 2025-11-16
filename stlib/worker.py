@@ -28,11 +28,20 @@ class Worker:
 
     def stop(self, clear: bool = False):
         #TODO also clear pos queue and remove pathmakers
+        if clear:
+            while not self.q_path.empty():
+                _ = self.q_path.get()
+                self.q_path.task_done()
+        
         self.com.stop(clear)
 
 
     def start(self):
-        self.com.start()    
+        self.com.start()
+
+
+    def update_speed(self, speed):
+        self.com.update_speed(speed)
 
 
     def _position_worker(self):

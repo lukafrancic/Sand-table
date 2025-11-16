@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from constants import EngineSubmission, ButtonPress
+from constants import EngineSubmission, ButtonPress, UpdateSpeed
 from utils import load_json
 import stlib as st
 import numpy as np
@@ -15,7 +15,7 @@ import numpy as np
 id_map = load_json()
 app = FastAPI()
 
-worker = st.Worker(COM="COM9")
+worker = st.Worker(COM="COM10")
 worker.start_worker()
 worker.start()
 worker.home()
@@ -71,3 +71,9 @@ async def button_press(data: ButtonPress):
             worker.stop(clear=True)
         case _:
             print(f"Received unexpected {data.task}")
+
+
+@app.post("/speed")
+async def update_speed(data: UpdateSpeed):
+    val = data.speed
+    worker.update_speed(val)

@@ -16,6 +16,27 @@
         <div id="params"></div>
 
         <button onclick="sendData()">Send</button>
+
+        <div>
+          <label>Set speed</label>
+        </div>
+        <div>
+          <input type="range" id="speed-slider" min="0" max="100" step="5"/>
+          <p>Value: <output id="speed-value"></output>%</p>
+        </div>
+        
+        <div class="color-selector">
+          <div>
+            <label>Set color</label>
+          </div>
+          <input type="range" id="R-slider" min="0" max="255" step="5"/>
+          <p>Value: <output id="R-value"></output>%</p>
+          <input type="range" id="G-slider" min="0" max="255" step="5"/>
+          <p>Value: <output id="G-value"></output>%</p>
+          <input type="range" id="B-slider" min="0" max="255" step="5"/>
+          <p>Value: <output id="B-value"></output>%</p>
+          <button onclick="updateColor()">Update</button>
+        </div>
       </div>
   
       <div class="right-panel">
