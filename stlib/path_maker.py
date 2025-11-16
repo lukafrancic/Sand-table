@@ -108,12 +108,13 @@ class PathMaker:
         self.num_iterations = num_iterations
         self._iter_counter = 0
 
+        self._get_new_pts()
+        self._calc_positions()      
+        
         # check radius limits
-        if not np.all(self.pts[:,0] < self.RADIUS_LIMIT_MM):
+        if not np.all(self.pts_polar[:,0] < self.RADIUS_LIMIT_MM):
             raise ValueError(f"Max allowed R value is {self.RADIUS_LIMIT_MM}")
         
-        self._get_new_pts()
-        self._calc_positions()
     
 
     def _get_new_pts(self) -> None:
@@ -289,3 +290,56 @@ class SpiralAboutCenter(PathMaker):
         return f"SpiralAboutCenter object:\n- r0 -> {self.pts[0,0]}\n" \
                 f"- r1 -> {self.pts[1,0]}\n" \
                 f"- {self.num_revolutions} of revolutions"
+    
+
+class RandomLines(PathMaker):
+    RADIUS_LIMIT_MM = 251 # max allowed r distance in mm
+    RADIUS_STEPS_MM = 81.82 # steps per mm for the radial position
+    ANGLE_STEPS_RAD = 4169.86 # steps per radian of rotation
+
+
+    def __init__(self, num_pts: int):
+        self.std_dist = 25
+        self.max_num = 3
+        self.gen_pts(num_pts)
+        super().__init__(None, None, 0, num_pts)
+
+
+    def _get_next_pt(self, prev_pt):
+        angle_offset = np.random.randint(0, 19)
+        pos = np.random.randint(1, self.max_num)*self.std_dist
+        while True:
+            angle = angle_offset*np.pi/2
+            offset = np.array([pos*np.cos(angle), pos*np.sin(angle)])
+            new_pt = prev_pt + offset
+
+            R_val = np.sqrt(np.sum(np.pow(new_pt,2)))
+            if R_val > self.RADIUS_LIMIT_MM:
+                angle_offset = (angle_offset + 1) % 4
+            else:
+                break
+        
+        return new_pt
+    
+
+    def gen_pts(self, num_pts):
+        prev_pt = np.array((0,0))
+        pts = [prev_pt]
+
+        for i in range(num_pts):
+            pt_ = self._get_next_pt(prev_pt)
+            pts.append(pt_)
+            prev_pt = pt_
+
+        pts = np.array(pts)
+        r = np.sqrt(pts[:,0]**2 + pts[:,1]**2)
+        phi = np.atan2(pts[:,1], pts[:,0]).T
+
+        self.pts_polar = np.vstack((r, phi)).T
+
+
+    def _get_new_pts(self):
+        pass
+
+
+    

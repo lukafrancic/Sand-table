@@ -1,0 +1,6 @@
+{
+    "engine": "RandomLines",
+    "parameters": [
+        {"name": "num_pts", "type": "number"}
+    ]
+}

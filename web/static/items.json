@@ -9,14 +9,22 @@
   },
   {
     "id": 3,
-    "name": "sovica"
+    "name": "krog"
   },
   {
     "id": 4,
-    "name": "spiral"
+    "name": "lines"
   },
   {
     "id": 5,
+    "name": "sovica"
+  },
+  {
+    "id": 6,
+    "name": "spiral"
+  },
+  {
+    "id": 7,
     "name": "zajcek"
   }
 ]

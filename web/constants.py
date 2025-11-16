@@ -18,9 +18,15 @@ class SpiralAboutCenterSubmission(BaseModel):
     r1: int
 
 
+class RandomLinesSubmission(BaseModel):
+    engine: Literal["RandomLines"]
+    num_pts: int
+
+
 EngineSubmission = Union[
     PathMakerSubmission,
-    SpiralAboutCenterSubmission
+    SpiralAboutCenterSubmission,
+    RandomLinesSubmission
 ]
 
 

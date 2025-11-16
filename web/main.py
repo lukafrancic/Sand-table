@@ -50,6 +50,10 @@ async def submit(data: EngineSubmission):
                                       num_revolutions = data.rotations)
             worker.add_PathMaker(pm)
 
+        case "RandomLines":
+            pm = st.RandomLines(num_pts=data.num_pts)
+            worker.add_PathMaker(pm)
+
         case _:
             print(f"Received unexpected engine {data.engine}")
 
