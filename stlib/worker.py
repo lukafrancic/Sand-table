@@ -15,6 +15,7 @@ class Worker:
         self.com = SerialCOM(COM)
         self._event = threading.Event()
         self._thread_active = False
+        self._clear_pos_queue = False
 
 
     def add_PathMaker(self, item: PathMaker):
@@ -29,10 +30,13 @@ class Worker:
     def stop(self, clear: bool = False):
         #TODO also clear pos queue and remove pathmakers
         if clear:
+            self._clear_pos_queue = True
             while not self.q_path.empty():
                 _ = self.q_path.get()
                 self.q_path.task_done()
         
+        time.sleep(0.1)
+        self._clear_pos_queue = False
         self.com.stop(clear)
 
 
@@ -55,6 +59,8 @@ class Worker:
 
                 for val in pm:
                     # wait until a slot gets freed
+                    if self._clear_pos_queue:
+                        break
                     self.com.send_pos(val)
                 
                 self.q_path.task_done()

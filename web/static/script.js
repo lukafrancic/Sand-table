@@ -28,7 +28,6 @@ async function loadItems() {
         updateSpeed(val);
     }, 1000);
   });
-
 }
 
 async function selectItem(id, name, element) {
@@ -103,22 +102,29 @@ async function buttonPress(task) {
 
 
 async function home() {
-    buttonPress("home");
+    await buttonPress("home");
 }
 
 
 async function start() {
-    buttonPress("start");
+    await buttonPress("start");
 }
 
 
 async function stop() {
-    buttonPress("stop");
+    await buttonPress("stop");
 }
 
 
 async function clearQueue() {
-    buttonPress("clear");
+    await buttonPress("clear");
+}
+
+
+async function shutdownDevice() {
+  if (window.confirm("Do you really want to shutdown the device?")) {
+    await buttonPress("shutdown");
+  }
 }
 
 

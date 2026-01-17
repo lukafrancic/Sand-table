@@ -73,6 +73,14 @@ async def button_press(data: ButtonPress):
         case "clear":
             # print("clear")
             worker.stop(clear=True)
+        case "shutdown":
+            worker.stop(clear=True)
+            worker.end_workers()
+            try:
+                os.system("sudo shudown -h now")
+            except Exception as err:
+                print(f"Failed to shutdown device\n{err}")
+
         case _:
             print(f"Received unexpected {data.task}")
 

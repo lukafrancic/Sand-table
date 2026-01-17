@@ -1,4 +1,18 @@
-.venv/
+# Byte-compiled / optimized / DLL files
+__pycache__/
+__pypackages__/
 stlib/__pycache__/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environments
+.venv
+
+# vscode
 .vscode
 /SandTableArduino/.vscode
+
+# shell scripts
+start_script.sh
+solar.service

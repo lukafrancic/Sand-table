@@ -1,0 +1,15 @@
+[Unit]
+Description=Sand table service
+After=network.target
+
+[Service]
+ExecStart=/home/pi/Sand-table/start_script.sh
+WorkingDirectory=/home/pi/Sand-table
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+RestartSec=20
+User=pi
+
+[Install]
+WantedBy=multi-user.target

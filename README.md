@@ -1,17 +1,10 @@
 # Sand-table
 Python and Arduino code to control a homemade sand table with a polar CS based kinematics design.
 
-![Sand Table](data/img_sand_table.jpg)
+<img src="data/img_sand_table.jpg" style="width: 60%">
 
 The whole thing is curently still in developlemnt.
 
-What is implemented so far:
-- Stepper control on Arduino
-- Serial communication via Serial between Arduino and PC
-- Svg to path converter -> works for basic paths made in Inkscape
+The device currently supports basic web access for giving predefined parametric drawing paths.
 
-TODO:
-- better path/img input to sand table
-- web control via Raspberry PI
-- LED strip control
-
+<img src="data/webpage_preview.png" style="width: 60%">
