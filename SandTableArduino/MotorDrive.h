@@ -19,6 +19,7 @@ constexpr long R_OFFSET = -300;
 constexpr uint8_t PHI_STEP_PIN = 60;
 constexpr uint8_t PHI_DIR_PIN = 61;
 constexpr uint8_t PHI_ENABLE_PIN = 56;
+constexpr uint8_t PHI_SWITCH_PIN = 2; // TODO connect to endstop pins
 
 enum class MotorState {
     home,
@@ -48,6 +49,9 @@ class MotorDrive {
         MotorState mState = MotorState::home;
         long position[2] = {0,0};
         bool homeSpeedSet = false;
+        bool rHomed = false;
+        bool phiHomed = false;
+        uint8_t prevPhiStopVal = 0;
 
         void homeMotor();
         void runMotors();

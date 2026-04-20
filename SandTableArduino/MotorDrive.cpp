@@ -58,9 +58,11 @@ void MotorDrive::clear() {
 
 void MotorDrive::homeMotor() {
     uint8_t endstopVal = digitalRead(R_SWITCH_PIN);
+    uint8_t phistopVal = digitalRead(PHI_SWITCH_PIN);
 
     if (!this->homeSpeedSet) {
         this->rMotor.setSpeed(HOMING_SPEED);
+        this->phiMotor.setSpeed(HOMING_SPEED);
         this->homeSpeedSet = true;
     }
 
@@ -69,11 +71,26 @@ void MotorDrive::homeMotor() {
     }
     else {
         this->rMotor.setCurrentPosition(R_OFFSET);
-        this->phiMotor.setCurrentPosition(0);
         this->rMotor.setSpeed(0);
         this->rMotor.runSpeed();
+        this->rHomed = true;
+    }
 
+    // detect rising edge and mark it as 0 position
+    if (prevPhiStopVal != 0 && phistopVal == 1) {
+        this->phiMotor.runSpeed();
+    } 
+    else {
+        this->phiMotor.setSpeed(0);
+        this->phiMotor.runSpeed();
+        this->phiMotor.setCurrentPosition(0);
+        this->phiHomed = true;
+    }
+
+    if (this->rHomed && this->phiHomed) {
         this->isHomed = true;
+        this->rHomed = false;
+        this->phiHomed = false;
         this->homeSpeedSet = false;
         this->mState = MotorState::moveActive;
         // position already set to 0
@@ -81,6 +98,8 @@ void MotorDrive::homeMotor() {
         this->phiMotor.setMaxSpeed(INIT_SPEED);
         this->steppers.moveTo(position);
     }
+
+    prevPhiStopVal = phistopVal;
 }
 
 

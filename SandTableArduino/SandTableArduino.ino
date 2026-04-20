@@ -1,3 +1,8 @@
+/*
+RAMPS 1.4 shield
+Geekcreit MEGA -> ATMEGA 2560 R3
+*/
+
 #include "SerialCom.h"
 #include "MotorDrive.h"
 #include <Arduino.h>
