@@ -15,11 +15,12 @@ constexpr int32_t R_MAX_STEP_LIMIT = 20700;
 constexpr float HOMING_SPEED = -600;
 constexpr float INIT_SPEED = 800;
 constexpr long R_OFFSET = -300;
+constexpr long PHI_STEPS = 26500; // a full circle in steps
 
 constexpr uint8_t PHI_STEP_PIN = 60;
 constexpr uint8_t PHI_DIR_PIN = 61;
 constexpr uint8_t PHI_ENABLE_PIN = 56;
-constexpr uint8_t PHI_SWITCH_PIN = 2; // TODO connect to endstop pins
+constexpr uint8_t PHI_SWITCH_PIN = 2;
 
 enum class MotorState {
     home,
@@ -38,20 +39,20 @@ class MotorDrive {
         void clear();
         void setPosition(const long& r, const long& phi);
         void updateSpeed(float speed);
+        void resetPosition();
+        int getCurrentAngle();
         bool isHomed = false;
-        bool moveFinished;
-        bool moveActive;
+        MotorState mState = MotorState::home;
 
     private:
         AccelStepper rMotor;
         AccelStepper phiMotor;
         MultiStepper steppers;
-        MotorState mState = MotorState::home;
         long position[2] = {0,0};
         bool homeSpeedSet = false;
         bool rHomed = false;
         bool phiHomed = false;
-        uint8_t prevPhiStopVal = 0;
+        uint8_t prevPhiStopVal = 1;
 
         void homeMotor();
         void runMotors();

@@ -26,9 +26,10 @@ void MotorDrive::runLoop() {
         this->runMotors();
         break;
     case MotorState::moveFinished:
-        //do stuff to update speed and pos
+        // wait for new command
         break;
     case MotorState::idle:
+        // wait for resume
         break;
     default:
         break;
@@ -38,21 +39,30 @@ void MotorDrive::runLoop() {
 
 void MotorDrive::home() {
     this->mState = MotorState::home;
+    // set start values for homing
+    this->homeSpeedSet = false;
+    this->rHomed = false;
+    this->phiHomed = false;
+    this->isHomed = false;
+    this->prevPhiStopVal = 1;
 }
 
 void MotorDrive::start() {
-    this->mState = MotorState::moveActive;
-    this->moveActive = true;
+    if (this->mState == MotorState::idle) {
+        this->mState = MotorState::moveActive;
+    }
 }
 
 void MotorDrive::stop() {
-    this->mState = MotorState::idle;
-    this->moveActive = false;
+    if (this->mState == MotorState::moveActive) {
+        this->mState = MotorState::idle;
+    }
 }
 
 void MotorDrive::clear() {
-    this->mState = MotorState::idle;
-    this->moveFinished = true;
+    if (this->mState == MotorState::moveActive || this->mState == MotorState::idle) {
+        this->mState = MotorState::moveFinished;
+    }
 }
 
 
@@ -77,10 +87,10 @@ void MotorDrive::homeMotor() {
     }
 
     // detect rising edge and mark it as 0 position
-    if (prevPhiStopVal != 0 && phistopVal == 1) {
+    if (!this->phiHomed) {
         this->phiMotor.runSpeed();
     } 
-    else {
+    if (this->prevPhiStopVal == 0 && phistopVal == 1) {
         this->phiMotor.setSpeed(0);
         this->phiMotor.runSpeed();
         this->phiMotor.setCurrentPosition(0);
@@ -92,11 +102,15 @@ void MotorDrive::homeMotor() {
         this->rHomed = false;
         this->phiHomed = false;
         this->homeSpeedSet = false;
-        this->mState = MotorState::moveActive;
-        // position already set to 0
+        // reset position if you call home during work
+        this->position[0] = 0;
+        this->position[1] = 0;
         this->rMotor.setMaxSpeed(INIT_SPEED);
         this->phiMotor.setMaxSpeed(INIT_SPEED);
         this->steppers.moveTo(position);
+
+        // run to initial position
+        this->mState = MotorState::moveActive;
     }
 
     prevPhiStopVal = phistopVal;
@@ -108,7 +122,6 @@ void MotorDrive::runMotors() {
         return;
     } else{
         this->mState = MotorState::moveFinished;
-        this->moveFinished = true;
     }
 }
 
@@ -123,7 +136,6 @@ void MotorDrive::setPosition(const long& r, const long& phi) {
     }
     this->position[1] += phi;
     this->mState = MotorState::moveActive;
-    this->moveFinished = false;
     this->steppers.moveTo(position);
 }
 
@@ -131,4 +143,18 @@ void MotorDrive::setPosition(const long& r, const long& phi) {
 void MotorDrive::updateSpeed(float speed) {
     this->rMotor.setMaxSpeed(speed);
     this->phiMotor.setMaxSpeed(speed);
+}
+
+
+/*Return angle in degrees -> 0...359 deg*/
+int MotorDrive::getCurrentAngle() {
+    long phi = this->phiMotor.currentPosition();
+    phi = phi % PHI_STEPS;
+    // we want to operate in angle from 0 to 359
+    if (phi < 0) {phi += PHI_STEPS;}
+    phi = map(phi, 0, PHI_STEPS-1, 0, 359);
+
+    int angle = static_cast<int>(phi);
+    
+    return angle;
 }
